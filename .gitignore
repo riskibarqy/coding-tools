@@ -1,0 +1,5 @@
+postgres_dump.sql
+.env
+.vscode
+mongo_dump
+podman/data

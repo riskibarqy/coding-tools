@@ -1,0 +1,265 @@
+x-common-env: &common_env
+  TZ: "Asia/Jakarta"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: my-postgres
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    mem_limit: 512m
+    cpus: "1.0"
+    networks: [backend-network]
+
+  redis:
+    image: redis:7-alpine
+    container_name: my-redis
+    restart: unless-stopped
+    command: ["redis-server","--requirepass","changeme","--save","60","1","--loglevel","warning"]
+    environment:
+      <<: *common_env
+      REDIS_PASSWORD: changeme
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD","redis-cli","-a","changeme","ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    cpus: "0.50"
+    networks: [backend-network]
+
+  mongo:
+    image: mongo:7.0
+    container_name: my-mongo
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-mongo}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-mongo}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    mem_limit: 512m
+    cpus: "1.0"
+    networks: [backend-network]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: my-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"   # in-cluster
+      - "29092:29092" # host access
+    environment:
+      <<: *common_env
+      KAFKA_SKIP_KRAFT_CHECKS: "true"
+    command:
+      - bash
+      - -c
+      - |
+        echo "Generating kraft.properties..."
+        cat <<EOF > /tmp/kraft.properties
+        process.roles=broker,controller
+        node.id=1
+        controller.quorum.voters=1@localhost:9093
+        listeners=PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+        advertised.listeners=PLAINTEXT://my-kafka:9092,HOST://localhost:29092
+        controller.listener.names=CONTROLLER
+        listener.security.protocol.map=PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+        inter.broker.listener.name=PLAINTEXT
+        log.dirs=/var/lib/kafka/data
+        offsets.topic.replication.factor=1
+        transaction.state.log.replication.factor=1
+        transaction.state.log.min.isr=1
+        group.initial.rebalance.delay.ms=0
+        EOF
+        if [ ! -f "/var/lib/kafka/data/meta.properties" ]; then
+          echo "Formatting Kafka storage..."
+          kafka-storage format --ignore-formatted \
+            --cluster-id jvMqlKDsTGuGiAd8t0Sk1Q \
+            --config /tmp/kraft.properties
+        fi
+        echo "Starting Kafka..."
+        kafka-server-start /tmp/kraft.properties
+    healthcheck:
+      test: ["CMD","bash","-c","kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    mem_limit: 1536m
+    cpus: "1.5"
+    networks: [backend-network]
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    container_name: kafdrop
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      KAFKA_BROKERCONNECT: "my-kafka:9092"
+    ports:
+      - "9000:9000"
+    depends_on:
+      - kafka
+    mem_limit: 128m
+    cpus: "0.25"
+    networks: [backend-network]
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      KAFKA_CLUSTERS_0_NAME: local-kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "my-kafka:9092"
+    ports:
+      - "8201:8080"
+    depends_on:
+      - kafka
+    mem_limit: 256m
+    cpus: "0.50"
+    networks: [backend-network]
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    mem_limit: 128m
+    cpus: "0.25"
+    networks: [backend-network]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    environment:
+      <<: *common_env
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: changeme
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 3072m   # 3 GB to give JVM headroom
+    cpus: "1.5"
+    networks: [backend-network]
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    environment:
+      <<: *common_env
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_SERVICEACCOUNTTOKEN: AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjpKUlVteFFnYVE1U3RyZUd3Vko4Yk13
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: 77d78b335ab04575386c7ad1d275f834
+      XPACK_REPORTING_ENCRYPTIONKEY: a8dbe9710f7c2162067543e9d2a37e7e
+      XPACK_SECURITY_ENCRYPTIONKEY: 30da3596eb3fb98c34792b33dc6e5fb5
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    mem_limit: 1536m
+    cpus: "1.0"
+    networks: [backend-network]
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:8.13.4
+    container_name: apm-server
+    command: >
+      apm-server -e
+      -E apm-server.secret_token=supersecret
+      -E apm-server.host=0.0.0.0:8200
+      -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
+      -E output.elasticsearch.username=elastic
+      -E output.elasticsearch.password=changeme
+    ports:
+      - "8200:8200"
+    depends_on:
+      - elasticsearch
+    mem_limit: 256m
+    cpus: "0.50"
+    networks: [backend-network]
+
+  pyroscope:
+    image: grafana/pyroscope:latest
+    container_name: pyroscope
+    restart: unless-stopped
+    command: ["server","--storage-path=/var/lib/pyroscope","--retention=7d"]
+    environment:
+      <<: *common_env
+      PYROSCOPE_LOG_LEVEL: info
+    ports:
+      - "4040:4040"
+    volumes:
+      - pyroscope_data:/var/lib/pyroscope
+    mem_limit: 512m
+    cpus: "0.75"
+    networks: [backend-network]
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: vault
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8202
+    cap_add: ["IPC_LOCK"]
+    command: "server -dev"
+    ports:
+      - "8202:8202"
+    mem_limit: 256m
+    cpus: "0.50"
+    networks: [backend-network]
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis-insight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    environment:
+      <<: *common_env
+      RIHOST: redis
+      RIPORT: "6379"
+      RIPASSWORD: changeme
+    depends_on:
+      - redis
+    mem_limit: 256m
+    cpus: "0.50"
+    networks: [backend-network]
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  mongo_data:
+  es_data:
+  pyroscope_data:
+
+networks:
+  backend-network:
+    driver: bridge
