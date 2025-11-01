@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .SILENT:
 
-MODEL ?= codellama:7b
+MODEL ?= qwen2.5-coder:7b
 OLLAMA_URL ?= http://localhost:11434
 MAX_DIFF_CHARS ?= 20000
 USE_AI ?= 1
