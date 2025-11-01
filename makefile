@@ -2,7 +2,7 @@
 SHELL := /bin/bash
 .SILENT:
 
-MODEL ?= llama3.2:3b-instruct
+MODEL ?= codellama:7b
 OLLAMA_URL ?= http://localhost:11434
 MAX_DIFF_CHARS ?= 20000
 USE_AI ?= 1
