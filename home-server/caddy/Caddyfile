@@ -36,7 +36,7 @@ http://{$CADDY_KIBANA_HOST:kibana.home} {
 }
 
 http://{$CADDY_NETDATA_HOST:netdata.home} {
-  reverse_proxy host.docker.internal:19999
+  reverse_proxy {$CADDY_NETDATA_UPSTREAM:host.docker.internal:19999}
 }
 
 http://{$CADDY_PORTAINER_HOST:portainer.home} {

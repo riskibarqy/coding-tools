@@ -145,7 +145,8 @@ Then access:
 
 Notes:
 
-- `netdata.home` proxies to the host-level Netdata listener through Docker's host gateway mapping.
+- `netdata.home` proxies to `CADDY_NETDATA_UPSTREAM`.
+- On Linux, if `host.docker.internal:19999` times out, set `CADDY_NETDATA_UPSTREAM` in `.env` to the server's reachable IP, for example `100.127.230.111:19999`.
 - `kibana.home` only works when the `observability` profile is running.
 - `kafka.home` only works when the `messaging` profile is running.
 - `redisinsight.home` only works when the `dashboard` profile is running.
