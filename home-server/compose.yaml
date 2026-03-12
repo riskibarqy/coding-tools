@@ -342,6 +342,8 @@ services:
     volumes:
       - alertmanager_data:/alertmanager
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/templates:/etc/alertmanager/templates:ro
+      - ./alertmanager/secrets:/etc/alertmanager/secrets:ro
     networks: [backend]
     logging: *default_logging
 

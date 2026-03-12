@@ -1,0 +1,16 @@
+{{ define "telegram.home.message" -}}
+[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+{{- if .CommonLabels.job }} (job={{ .CommonLabels.job }}){{ end }}
+
+{{- if .CommonAnnotations.summary }}
+Summary: {{ .CommonAnnotations.summary }}
+{{- end }}
+{{- if .CommonAnnotations.description }}
+Description: {{ .CommonAnnotations.description }}
+{{- end }}
+
+Alerts:
+{{- range .Alerts }}
+- {{ .Labels.instance }}{{ if .Annotations.summary }} | {{ .Annotations.summary }}{{ end }}
+{{- end }}
+{{- end }}
