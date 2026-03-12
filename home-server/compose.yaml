@@ -332,7 +332,7 @@ services:
 
   cadvisor:
     profiles: ["monitoring"]
-    image: ghcr.io/google/cadvisor:v0.54.1
+    image: ghcr.io/google/cadvisor:v0.55.1
     restart: unless-stopped
     privileged: true
     devices:
