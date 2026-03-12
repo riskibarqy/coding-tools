@@ -431,6 +431,9 @@ services:
     profiles: ["backup"]
     image: restic/restic:0.18.0
     restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - /usr/local/bin/backup.sh
     environment:
       TZ: ${TZ:-Asia/Jakarta}
       RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:-/restic-repo}
@@ -438,9 +441,6 @@ services:
       RESTIC_BACKUP_INTERVAL_SECONDS: ${RESTIC_BACKUP_INTERVAL_SECONDS:-86400}
       RESTIC_KEEP_LAST: ${RESTIC_KEEP_LAST:-7}
       RESTIC_KEEP_DAILY: ${RESTIC_KEEP_DAILY:-7}
-    command:
-      - sh
-      - /usr/local/bin/backup.sh
     volumes:
       - restic_repo:/restic-repo
       - ./restic/backup.sh:/usr/local/bin/backup.sh:ro
