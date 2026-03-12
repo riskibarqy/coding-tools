@@ -4,13 +4,14 @@ COMPOSE_FILE ?= compose.yaml
 COMPOSE_CMD = $(COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE)
 SERVICE ?= postgres
 
-.PHONY: help up up-dashboard up-portal up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-edge up-backup up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-homarr restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-blackbox-exporter restart-alertmanager restart-redis-exporter restart-otel-collector restart-tempo restart-caddy restart-restic
+.PHONY: help up up-dashboard up-portal up-bugsink up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-edge up-backup up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-bugsink restart-homarr restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-blackbox-exporter restart-alertmanager restart-redis-exporter restart-otel-collector restart-tempo restart-caddy restart-restic
 
 help:
 	@echo "Targets:"
 	@echo "  make up                - Start baseline services (postgres, redis, mailhog)"
 	@echo "  make up-dashboard      - Start Portainer + Netdata"
 	@echo "  make up-portal         - Start Homarr portal"
+	@echo "  make up-bugsink        - Start Bugsink error tracking"
 	@echo "  make up-mysql          - Start baseline + MySQL"
 	@echo "  make up-mongo          - Start baseline + MongoDB"
 	@echo "  make up-messaging      - Start baseline + Kafka + Kafka UI"
@@ -49,6 +50,9 @@ up-dashboard:
 up-portal:
 	$(COMPOSE_CMD) --profile portal up -d
 
+up-bugsink:
+	$(COMPOSE_CMD) --profile bugsink up -d
+
 up-mysql:
 	$(COMPOSE_CMD) --profile mysql up -d
 
@@ -74,7 +78,7 @@ up-backup:
 	$(COMPOSE_CMD) --profile backup up -d
 
 up-full:
-	$(COMPOSE_CMD) --profile dashboard --profile portal --profile mysql --profile mongo --profile messaging --profile observability --profile monitoring --profile otel --profile edge --profile backup up -d
+	$(COMPOSE_CMD) --profile dashboard --profile portal --profile bugsink --profile mysql --profile mongo --profile messaging --profile observability --profile monitoring --profile otel --profile edge --profile backup up -d
 
 down:
 	$(COMPOSE_CMD) down
@@ -126,6 +130,9 @@ restart-netdata: service-restart
 
 restart-redis-insight: SERVICE=redis-insight
 restart-redis-insight: service-restart
+
+restart-bugsink: SERVICE=bugsink
+restart-bugsink: service-restart
 
 restart-homarr: SERVICE=homarr
 restart-homarr: service-restart

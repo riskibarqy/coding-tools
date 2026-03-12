@@ -7,6 +7,7 @@ It is intentionally narrower than the repo's original dev stack:
 - Kept by default: PostgreSQL, Redis, MailHog
 - Optional dashboard profile: Portainer, Netdata, Redis Insight
 - Optional portal profile: Homarr
+- Optional bugsink profile: Bugsink error tracking
 - Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server, Grafana + Prometheus + blackbox_exporter + Alertmanager + exporters, OpenTelemetry Collector + Tempo, Caddy, restic backups
 - Removed from this baseline: Vault dev mode, Kafdrop, Redis Insight, Pyroscope
 
@@ -48,6 +49,7 @@ Start baseline plus one optional group:
 ```bash
 make up-dashboard
 make up-portal
+make up-bugsink
 make up-mysql
 make up-mongo
 make up-messaging
@@ -106,6 +108,10 @@ After `make up-portal`:
 
 - Homarr: `http://SERVER_IP:7575`
 
+After `make up-bugsink`:
+
+- Bugsink: `http://SERVER_IP:8010`
+
 After `make up-monitoring`:
 
 - Grafana: `http://SERVER_IP:3000`
@@ -116,6 +122,7 @@ Portainer is the Docker management UI.
 Netdata is the host and container metrics UI.
 Redis Insight is the practical Redis UI for browsing keys, memory, commands, and Redis-specific diagnostics.
 Homarr is the homelab portal for launching and organizing your services.
+Bugsink is the lighter Sentry-like error tracking UI for app exceptions.
 Grafana is the main dashboard for Prometheus metrics and Tempo traces.
 Blackbox Exporter probes services from the outside-in.
 Alertmanager handles alert routing and silencing, and is now wired for Telegram notifications.
@@ -127,7 +134,7 @@ The default Caddy hostnames use `.home`, not `.local`, to avoid mDNS conflicts.
 Add this on the client machine you use to access the server:
 
 ```text
-100.127.230.111 homarr.home grafana.home prometheus.home alertmanager.home mailhog.home redisinsight.home kafka.home kibana.home netdata.home portainer.home
+100.127.230.111 homarr.home grafana.home prometheus.home alertmanager.home mailhog.home redisinsight.home bugsink.home kafka.home kibana.home netdata.home portainer.home
 ```
 
 Then access:
@@ -138,6 +145,7 @@ Then access:
 - `http://alertmanager.home:8088`
 - `http://mailhog.home:8088`
 - `http://redisinsight.home:8088`
+- `http://bugsink.home:8088`
 - `http://kafka.home:8088`
 - `http://kibana.home:8088`
 - `http://netdata.home:8088`
@@ -150,6 +158,7 @@ Notes:
 - `kibana.home` only works when the `observability` profile is running.
 - `kafka.home` only works when the `messaging` profile is running.
 - `redisinsight.home` only works when the `dashboard` profile is running.
+- `bugsink.home` only works when the `bugsink` profile is running.
 - `homarr.home` only works when the `portal` profile is running.
 
 ## Remote Access With Tailscale
@@ -184,6 +193,7 @@ Notes:
 - The default restic config backs up into a local Docker volume. That is good for proving the workflow, but it is not a real off-host backup until you point `RESTIC_REPOSITORY` at external storage.
 - `Portainer` and `Netdata` assume Docker is available at `/var/run/docker.sock`. They are not portable to Podman without changes.
 - If you access Portainer through Caddy, set `PORTAINER_TRUSTED_ORIGINS` in `.env` to the hostname you use, for example `portainer.home`. Otherwise Portainer can reject actions with `Forbidden - origin invalid`.
+- Bugsink is wired to PostgreSQL instead of SQLite because Bugsink's official docs advise against SQLite-on-Docker-volume setups for anything production-like.
 - `Netdata` uses `network_mode: host` per the official Docker guidance so it can observe host networking properly. That means its dashboard listens on the host directly on port `19999`; keep your firewall tight if the server is reachable outside your LAN.
 - This compose now publishes ports on `0.0.0.0` by default. Treat the server firewall as mandatory, not optional.
 - Kafka, Kafka UI, Kibana, and Mongo now have conservative memory caps in `.env`. If your server is small, keep those defaults; if workloads become slow under load, raise them intentionally instead of leaving the JVM defaults unbounded.
@@ -196,6 +206,8 @@ Notes:
   - `redis-insight` on `5540`
 - `portal`
   - `homarr` on `7575`
+- `bugsink`
+  - `bugsink` on `8010`
 - `observability`
   - `elasticsearch` on `9200`
   - `kibana` on `5601`
@@ -248,6 +260,47 @@ Note:
 - `make up-monitoring` does not require `make up-otel`
 - Prometheus in this baseline scrapes host, container, and Redis metrics only
 - Tempo is still available to Grafana as a trace datasource when `make up-otel` is running
+
+## Bugsink
+
+Bugsink is included as an optional `bugsink` profile.
+
+Before first startup, create its PostgreSQL database and user inside the existing `postgres` container:
+
+```bash
+cd /Users/riskiramdan/coding-tools/home-server
+docker compose --env-file .env -f compose.yaml exec -it postgres psql -U app -d postgres
+```
+
+Then run:
+
+```sql
+CREATE USER bugsink WITH PASSWORD 'change-me-bugsink-db';
+CREATE DATABASE bugsink OWNER bugsink;
+```
+
+After that, set these values in your real `.env`:
+
+- `BUGSINK_DB_NAME`
+- `BUGSINK_DB_USER`
+- `BUGSINK_DB_PASSWORD`
+- `BUGSINK_SECRET_KEY`
+- `BUGSINK_CREATE_SUPERUSER`
+- `BUGSINK_BASE_URL`
+
+Then start it:
+
+```bash
+make up-bugsink
+make up-edge
+```
+
+Access:
+
+- direct: `http://SERVER_IP:8010`
+- through Caddy: `http://bugsink.home`
+
+If you later move Caddy to HTTPS, change `BUGSINK_BASE_URL` to `https://bugsink.home` and stop relying on `BUGSINK_BEHIND_PLAIN_HTTP_PROXY=true`.
 
 ## Sentry
 

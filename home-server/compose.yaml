@@ -121,6 +121,28 @@ services:
     networks: [backend]
     logging: *default_logging
 
+  bugsink:
+    profiles: ["bugsink"]
+    image: bugsink/bugsink:2.0.14
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      PORT: "8000"
+      SECRET_KEY: ${BUGSINK_SECRET_KEY:?set BUGSINK_SECRET_KEY in .env}
+      CREATE_SUPERUSER: ${BUGSINK_CREATE_SUPERUSER:?set BUGSINK_CREATE_SUPERUSER in .env}
+      DATABASE_URL: postgresql://${BUGSINK_DB_USER:-bugsink}:${BUGSINK_DB_PASSWORD:?set BUGSINK_DB_PASSWORD in .env}@postgres:5432/${BUGSINK_DB_NAME:-bugsink}
+      BASE_URL: ${BUGSINK_BASE_URL:-http://bugsink.home}
+      SITE_TITLE: ${BUGSINK_SITE_TITLE:-Home Bugsink}
+      SINGLE_USER: ${BUGSINK_SINGLE_USER:-true}
+      BEHIND_PLAIN_HTTP_PROXY: ${BUGSINK_BEHIND_PLAIN_HTTP_PROXY:-true}
+    ports:
+      - "0.0.0.0:${BUGSINK_HOST_PORT:-8010}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
   mysql:
     profiles: ["mysql"]
     image: mysql:8.4
@@ -439,6 +461,7 @@ services:
       CADDY_KIBANA_HOST: ${CADDY_KIBANA_HOST:-kibana.home}
       CADDY_NETDATA_HOST: ${CADDY_NETDATA_HOST:-netdata.home}
       CADDY_NETDATA_UPSTREAM: ${CADDY_NETDATA_UPSTREAM:-host.docker.internal:19999}
+      CADDY_BUGSINK_HOST: ${CADDY_BUGSINK_HOST:-bugsink.home}
       CADDY_PORTAINER_HOST: ${CADDY_PORTAINER_HOST:-portainer.home}
     ports:
       - "0.0.0.0:${CADDY_HTTP_PORT:-8088}:80"
