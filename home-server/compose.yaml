@@ -315,6 +315,33 @@ services:
     volumes:
       - prometheus_data:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    networks: [backend]
+    logging: *default_logging
+
+  blackbox-exporter:
+    profiles: ["monitoring"]
+    image: quay.io/prometheus/blackbox-exporter:v0.27.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    networks: [backend]
+    logging: *default_logging
+
+  alertmanager:
+    profiles: ["monitoring"]
+    image: quay.io/prometheus/alertmanager:v0.28.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "0.0.0.0:${ALERTMANAGER_HOST_PORT:-9093}:9093"
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     networks: [backend]
     logging: *default_logging
 
@@ -385,6 +412,47 @@ services:
     networks: [backend]
     logging: *default_logging
 
+  caddy:
+    profiles: ["edge"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:${CADDY_HTTP_PORT:-8088}:80"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks: [backend]
+    logging: *default_logging
+
+  restic:
+    profiles: ["backup"]
+    image: restic/restic:0.18.0
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Jakarta}
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:-/restic-repo}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?set RESTIC_PASSWORD in .env}
+      RESTIC_BACKUP_INTERVAL_SECONDS: ${RESTIC_BACKUP_INTERVAL_SECONDS:-86400}
+      RESTIC_KEEP_LAST: ${RESTIC_KEEP_LAST:-7}
+      RESTIC_KEEP_DAILY: ${RESTIC_KEEP_DAILY:-7}
+    command:
+      - sh
+      - /usr/local/bin/backup.sh
+    volumes:
+      - restic_repo:/restic-repo
+      - ./restic/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./:/backup/config:ro
+      - postgres_data:/backup/postgres:ro
+      - redis_data:/backup/redis:ro
+      - mysql_data:/backup/mysql:ro
+      - mongo_data:/backup/mongo:ro
+      - grafana_data:/backup/grafana:ro
+      - prometheus_data:/backup/prometheus:ro
+      - tempo_data:/backup/tempo:ro
+    networks: [backend]
+    logging: *default_logging
+
 volumes:
   postgres_data:
   redis_data:
@@ -400,6 +468,10 @@ volumes:
   grafana_data:
   prometheus_data:
   tempo_data:
+  alertmanager_data:
+  caddy_data:
+  caddy_config:
+  restic_repo:
 
 networks:
   backend:

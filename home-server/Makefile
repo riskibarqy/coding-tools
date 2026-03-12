@@ -4,7 +4,7 @@ COMPOSE_FILE ?= compose.yaml
 COMPOSE_CMD = $(COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE)
 SERVICE ?= postgres
 
-.PHONY: help up up-dashboard up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-redis-exporter restart-otel-collector restart-tempo
+.PHONY: help up up-dashboard up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-edge up-backup up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-blackbox-exporter restart-alertmanager restart-redis-exporter restart-otel-collector restart-tempo restart-caddy restart-restic
 
 help:
 	@echo "Targets:"
@@ -14,8 +14,10 @@ help:
 	@echo "  make up-mongo          - Start baseline + MongoDB"
 	@echo "  make up-messaging      - Start baseline + Kafka + Kafka UI"
 	@echo "  make up-observability  - Start baseline + Elasticsearch + Kibana + APM Server"
-	@echo "  make up-monitoring     - Start Grafana + Prometheus + node_exporter + cAdvisor"
+	@echo "  make up-monitoring     - Start Grafana + Prometheus + blackbox_exporter + Alertmanager + exporters"
 	@echo "  make up-otel           - Start OpenTelemetry Collector + Tempo"
+	@echo "  make up-edge           - Start Caddy reverse proxy"
+	@echo "  make up-backup         - Start restic backup worker"
 	@echo "  make up-full           - Start everything in this folder"
 	@echo "  make down              - Stop and remove containers"
 	@echo "  make restart           - Restart all running services in this compose project"
@@ -61,8 +63,14 @@ up-monitoring:
 up-otel:
 	$(COMPOSE_CMD) --profile otel up -d
 
+up-edge:
+	$(COMPOSE_CMD) --profile edge up -d
+
+up-backup:
+	$(COMPOSE_CMD) --profile backup up -d
+
 up-full:
-	$(COMPOSE_CMD) --profile dashboard --profile mysql --profile mongo --profile messaging --profile observability --profile monitoring --profile otel up -d
+	$(COMPOSE_CMD) --profile dashboard --profile mysql --profile mongo --profile messaging --profile observability --profile monitoring --profile otel --profile edge --profile backup up -d
 
 down:
 	$(COMPOSE_CMD) down
@@ -148,6 +156,12 @@ restart-node-exporter: service-restart
 restart-cadvisor: SERVICE=cadvisor
 restart-cadvisor: service-restart
 
+restart-blackbox-exporter: SERVICE=blackbox-exporter
+restart-blackbox-exporter: service-restart
+
+restart-alertmanager: SERVICE=alertmanager
+restart-alertmanager: service-restart
+
 restart-redis-exporter: SERVICE=redis-exporter
 restart-redis-exporter: service-restart
 
@@ -156,3 +170,9 @@ restart-otel-collector: service-restart
 
 restart-tempo: SERVICE=tempo
 restart-tempo: service-restart
+
+restart-caddy: SERVICE=caddy
+restart-caddy: service-restart
+
+restart-restic: SERVICE=restic
+restart-restic: service-restart

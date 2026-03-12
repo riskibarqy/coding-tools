@@ -1,0 +1,28 @@
+{
+  auto_https off
+  admin off
+}
+
+{$CADDY_GRAFANA_HOST:grafana.local} {
+  reverse_proxy grafana:3000
+}
+
+{$CADDY_PROMETHEUS_HOST:prometheus.local} {
+  reverse_proxy prometheus:9090
+}
+
+{$CADDY_ALERTMANAGER_HOST:alertmanager.local} {
+  reverse_proxy alertmanager:9093
+}
+
+{$CADDY_REDIS_INSIGHT_HOST:redisinsight.local} {
+  reverse_proxy redis-insight:5540
+}
+
+{$CADDY_PORTAINER_HOST:portainer.local} {
+  reverse_proxy https://portainer:9443 {
+    transport http {
+      tls_insecure_skip_verify
+    }
+  }
+}

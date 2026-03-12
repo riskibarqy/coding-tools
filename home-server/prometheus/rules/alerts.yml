@@ -1,0 +1,38 @@
+groups:
+  - name: home-server.rules
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Target down"
+          description: "{{ $labels.job }} target {{ $labels.instance }} is down."
+
+      - alert: HighHostCPU
+        expr: 100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High host CPU"
+          description: "Host CPU usage has been above 85% for 10 minutes."
+
+      - alert: RootDiskLow
+        expr: 100 * (node_filesystem_avail_bytes{mountpoint="/",fstype!="rootfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="rootfs"}) < 15
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low root disk space"
+          description: "Root filesystem free space is below 15%."
+
+      - alert: ProbeFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Probe failed"
+          description: "Blackbox probe failed for {{ $labels.instance }}."

@@ -6,7 +6,7 @@ It is intentionally narrower than the repo's original dev stack:
 
 - Kept by default: PostgreSQL, Redis, MailHog
 - Optional dashboard profile: Portainer, Netdata, Redis Insight
-- Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server, Grafana + Prometheus + node_exporter + cAdvisor, OpenTelemetry Collector + Tempo
+- Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server, Grafana + Prometheus + blackbox_exporter + Alertmanager + exporters, OpenTelemetry Collector + Tempo, Caddy, restic backups
 - Removed from this baseline: Vault dev mode, Kafdrop, Redis Insight, Pyroscope
 
 ## Why this version exists
@@ -52,6 +52,8 @@ make up-messaging
 make up-observability
 make up-monitoring
 make up-otel
+make up-edge
+make up-backup
 ```
 
 Start everything:
@@ -102,11 +104,14 @@ After `make up-monitoring`:
 
 - Grafana: `http://SERVER_IP:3000`
 - Prometheus: `http://SERVER_IP:9090`
+- Alertmanager: `http://SERVER_IP:9093`
 
 Portainer is the Docker management UI.
 Netdata is the host and container metrics UI.
 Redis Insight is the practical Redis UI for browsing keys, memory, commands, and Redis-specific diagnostics.
 Grafana is the main dashboard for Prometheus metrics and Tempo traces.
+Blackbox Exporter probes services from the outside-in.
+Alertmanager handles alert routing and silencing.
 
 ## Remote Access With Tailscale
 
@@ -125,6 +130,7 @@ Notes:
 - `Netdata` already uses host networking, so it is reachable on the server's interfaces, including Tailscale.
 - PostgreSQL, Redis, MySQL, MongoDB, and the other published services are reachable on the server interfaces, including Tailscale, LAN, and any public-facing interface your firewall/router exposes.
 - Grafana, Prometheus, and the OTLP ingest ports are also published on the server interfaces by default.
+- Alertmanager and Caddy are also published on the server interfaces by default.
 - If you do not want services exposed broadly, tighten your host firewall immediately.
 
 ## Practical notes
@@ -134,6 +140,8 @@ Notes:
 - Elasticsearch is the heaviest part of this stack. Only enable the observability profile if you need it.
 - Kafka is useful for development or queue experiments, but it is unnecessary overhead for most home setups.
 - Prometheus + Grafana + Tempo adds another monitoring path next to Elastic. That is intentional here, but it does increase RAM usage.
+- The default Alertmanager config is intentionally quiet. It starts cleanly, but it does not send notifications until you add a real receiver.
+- The default restic config backs up into a local Docker volume. That is good for proving the workflow, but it is not a real off-host backup until you point `RESTIC_REPOSITORY` at external storage.
 - `Portainer` and `Netdata` assume Docker is available at `/var/run/docker.sock`. They are not portable to Podman without changes.
 - `Netdata` uses `network_mode: host` per the official Docker guidance so it can observe host networking properly. That means its dashboard listens on the host directly on port `19999`; keep your firewall tight if the server is reachable outside your LAN.
 - This compose now publishes ports on `0.0.0.0` by default. Treat the server firewall as mandatory, not optional.
@@ -151,18 +159,25 @@ Notes:
 - `monitoring`
   - `grafana` on `3000`
   - `prometheus` on `9090`
+  - `alertmanager` on `9093`
+  - `blackbox-exporter` internal on `9115`
   - `node-exporter` internal on `9100`
   - `cadvisor` internal on `8080`
   - `redis-exporter` internal on `9121`
 - `otel`
   - `otel-collector` on `4317` and `4318`
   - `tempo` internal on `3200`
+- `edge`
+  - `caddy` on `8088`
+- `backup`
+  - `restic` background worker using `RESTIC_REPOSITORY`
 
 ## Data Flow
 
 - Host metrics: `node-exporter -> prometheus -> grafana`
 - Container metrics: `cadvisor -> prometheus -> grafana`
 - Redis metrics: `redis-exporter -> prometheus -> grafana`
+- Active probes: `blackbox-exporter -> prometheus -> alert rules -> alertmanager`
 - OTLP traces: `app -> otel-collector -> tempo -> grafana`
 - Elastic APM traces and APM data: `app -> apm-server -> elasticsearch -> kibana`
 
