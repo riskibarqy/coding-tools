@@ -3,23 +3,43 @@
   admin off
 }
 
-{$CADDY_GRAFANA_HOST:grafana.local} {
+{$CADDY_GRAFANA_HOST:grafana.home} {
   reverse_proxy grafana:3000
 }
 
-{$CADDY_PROMETHEUS_HOST:prometheus.local} {
+{$CADDY_HOMARR_HOST:homarr.home} {
+  reverse_proxy homarr:7575
+}
+
+{$CADDY_PROMETHEUS_HOST:prometheus.home} {
   reverse_proxy prometheus:9090
 }
 
-{$CADDY_ALERTMANAGER_HOST:alertmanager.local} {
+{$CADDY_ALERTMANAGER_HOST:alertmanager.home} {
   reverse_proxy alertmanager:9093
 }
 
-{$CADDY_REDIS_INSIGHT_HOST:redisinsight.local} {
+{$CADDY_MAILHOG_HOST:mailhog.home} {
+  reverse_proxy mailhog:8025
+}
+
+{$CADDY_REDIS_INSIGHT_HOST:redisinsight.home} {
   reverse_proxy redis-insight:5540
 }
 
-{$CADDY_PORTAINER_HOST:portainer.local} {
+{$CADDY_KAFKA_UI_HOST:kafka.home} {
+  reverse_proxy kafka-ui:8080
+}
+
+{$CADDY_KIBANA_HOST:kibana.home} {
+  reverse_proxy kibana:5601
+}
+
+{$CADDY_NETDATA_HOST:netdata.home} {
+  reverse_proxy host.docker.internal:19999
+}
+
+{$CADDY_PORTAINER_HOST:portainer.home} {
   reverse_proxy https://portainer:9443 {
     transport http {
       tls_insecure_skip_verify

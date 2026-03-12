@@ -120,6 +120,37 @@ Grafana is the main dashboard for Prometheus metrics and Tempo traces.
 Blackbox Exporter probes services from the outside-in.
 Alertmanager handles alert routing and silencing, and is now wired for Telegram notifications.
 
+## Caddy Hostnames
+
+The default Caddy hostnames use `.home`, not `.local`, to avoid mDNS conflicts.
+
+Add this on the client machine you use to access the server:
+
+```text
+100.127.230.111 homarr.home grafana.home prometheus.home alertmanager.home mailhog.home redisinsight.home kafka.home kibana.home netdata.home portainer.home
+```
+
+Then access:
+
+- `http://homarr.home:8088`
+- `http://grafana.home:8088`
+- `http://prometheus.home:8088`
+- `http://alertmanager.home:8088`
+- `http://mailhog.home:8088`
+- `http://redisinsight.home:8088`
+- `http://kafka.home:8088`
+- `http://kibana.home:8088`
+- `http://netdata.home:8088`
+- `http://portainer.home:8088`
+
+Notes:
+
+- `netdata.home` proxies to the host-level Netdata listener through Docker's host gateway mapping.
+- `kibana.home` only works when the `observability` profile is running.
+- `kafka.home` only works when the `messaging` profile is running.
+- `redisinsight.home` only works when the `dashboard` profile is running.
+- `homarr.home` only works when the `portal` profile is running.
+
 ## Remote Access With Tailscale
 
 All published ports in this stack are bound on the server interfaces, so if Tailscale is installed you can connect with the server's Tailscale IP directly.
