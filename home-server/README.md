@@ -6,6 +6,7 @@ It is intentionally narrower than the repo's original dev stack:
 
 - Kept by default: PostgreSQL, Redis, MailHog
 - Optional dashboard profile: Portainer, Netdata, Redis Insight
+- Optional portal profile: Homarr
 - Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server, Grafana + Prometheus + blackbox_exporter + Alertmanager + exporters, OpenTelemetry Collector + Tempo, Caddy, restic backups
 - Removed from this baseline: Vault dev mode, Kafdrop, Redis Insight, Pyroscope
 
@@ -46,6 +47,7 @@ Start baseline plus one optional group:
 
 ```bash
 make up-dashboard
+make up-portal
 make up-mysql
 make up-mongo
 make up-messaging
@@ -100,6 +102,10 @@ After `make up-dashboard`:
 - Netdata: `http://SERVER_IP:19999`
 - Redis Insight: `http://SERVER_IP:5540`
 
+After `make up-portal`:
+
+- Homarr: `http://SERVER_IP:7575`
+
 After `make up-monitoring`:
 
 - Grafana: `http://SERVER_IP:3000`
@@ -109,6 +115,7 @@ After `make up-monitoring`:
 Portainer is the Docker management UI.
 Netdata is the host and container metrics UI.
 Redis Insight is the practical Redis UI for browsing keys, memory, commands, and Redis-specific diagnostics.
+Homarr is the homelab portal for launching and organizing your services.
 Grafana is the main dashboard for Prometheus metrics and Tempo traces.
 Blackbox Exporter probes services from the outside-in.
 Alertmanager handles alert routing and silencing, and is now wired for Telegram notifications.
@@ -153,6 +160,8 @@ Notes:
   - `portainer` on `9443`
   - `netdata` on `19999`
   - `redis-insight` on `5540`
+- `portal`
+  - `homarr` on `7575`
 - `observability`
   - `elasticsearch` on `9200`
   - `kibana` on `5601`

@@ -427,6 +427,22 @@ services:
     networks: [backend]
     logging: *default_logging
 
+  homarr:
+    profiles: ["portal"]
+    image: ghcr.io/homarr-labs/homarr:latest
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      SECRET_ENCRYPTION_KEY: ${HOMARR_SECRET_ENCRYPTION_KEY:?set HOMARR_SECRET_ENCRYPTION_KEY in .env}
+      AUTH_PROVIDERS: credentials
+    ports:
+      - "0.0.0.0:${HOMARR_HOST_PORT:-7575}:7575"
+    volumes:
+      - homarr_data:/appdata
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [backend]
+    logging: *default_logging
+
   restic:
     profiles: ["backup"]
     image: restic/restic:0.18.0
@@ -473,6 +489,7 @@ volumes:
   alertmanager_data:
   caddy_data:
   caddy_config:
+  homarr_data:
   restic_repo:
 
 networks:
