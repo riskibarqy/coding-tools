@@ -19,7 +19,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     ports:
-      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+      - "0.0.0.0:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,7 +41,7 @@ services:
       - -c
       - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --save 60 1 --loglevel warning
     ports:
-      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+      - "0.0.0.0:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -56,8 +56,8 @@ services:
     image: mailhog/mailhog:v1.0.1
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
-      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+      - "0.0.0.0:${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "0.0.0.0:${MAILHOG_UI_PORT:-8025}:8025"
     networks: [backend]
     logging: *default_logging
 
@@ -66,7 +66,7 @@ services:
     image: portainer/portainer-ce:lts
     restart: unless-stopped
     ports:
-      - "${PORTAINER_BIND_IP:-127.0.0.1}:${PORTAINER_HTTPS_PORT:-9443}:9443"
+      - "${PORTAINER_BIND_IP:-0.0.0.0}:${PORTAINER_HTTPS_PORT:-9443}:9443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
@@ -111,7 +111,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-app}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
     ports:
-      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
+      - "0.0.0.0:${MYSQL_HOST_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -131,7 +131,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
     ports:
-      - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
+      - "0.0.0.0:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
       - mongo_data:/data/db
     networks: [backend]
@@ -172,7 +172,7 @@ services:
         fi
         exec kafka-server-start /tmp/kraft.properties
     ports:
-      - "127.0.0.1:${KAFKA_HOST_PORT:-29092}:29092"
+      - "0.0.0.0:${KAFKA_HOST_PORT:-29092}:29092"
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -196,7 +196,7 @@ services:
       KAFKA_CLUSTERS_0_PROPERTIES_MAX_PARTITION_FETCH_BYTES: 20971520
       KAFKA_CLUSTERS_0_PROPERTIES_MAX_REQUEST_SIZE: 20971520
     ports:
-      - "127.0.0.1:${KAFKA_UI_HOST_PORT:-8201}:8080"
+      - "0.0.0.0:${KAFKA_UI_HOST_PORT:-8201}:8080"
     depends_on:
       kafka:
         condition: service_healthy
@@ -214,7 +214,7 @@ services:
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
       ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
     ports:
-      - "127.0.0.1:${ELASTIC_HOST_PORT:-9200}:9200"
+      - "0.0.0.0:${ELASTIC_HOST_PORT:-9200}:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
@@ -239,7 +239,7 @@ services:
       ELASTICSEARCH_USERNAME: elastic
       ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
     ports:
-      - "127.0.0.1:${KIBANA_HOST_PORT:-5601}:5601"
+      - "0.0.0.0:${KIBANA_HOST_PORT:-5601}:5601"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -258,7 +258,7 @@ services:
       -E output.elasticsearch.username=elastic
       -E output.elasticsearch.password=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
     ports:
-      - "127.0.0.1:${APM_SERVER_HOST_PORT:-8200}:8200"
+      - "0.0.0.0:${APM_SERVER_HOST_PORT:-8200}:8200"
     depends_on:
       elasticsearch:
         condition: service_healthy

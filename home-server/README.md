@@ -21,9 +21,9 @@ The original compose files in this repo are useful for local development, but th
 This folder tightens that up by:
 
 - moving passwords and ports into `.env`
-- binding ports to `127.0.0.1` by default
 - keeping the default stack small
 - making heavier services opt-in through profiles
+- leaving passwords explicit so you can harden before exposing services
 
 ## Quick start
 
@@ -35,10 +35,10 @@ make up
 
 Default startup:
 
-- PostgreSQL on `127.0.0.1:5432`
-- Redis on `127.0.0.1:6379`
-- MailHog SMTP on `127.0.0.1:1025`
-- MailHog UI on `http://127.0.0.1:8025`
+- PostgreSQL on `SERVER_IP:5432`
+- Redis on `SERVER_IP:6379`
+- MailHog SMTP on `SERVER_IP:1025`
+- MailHog UI on `http://SERVER_IP:8025`
 
 ## Optional profiles
 
@@ -90,7 +90,7 @@ make COMPOSE="podman compose" up
 
 After `make up-dashboard`:
 
-- Portainer: `https://127.0.0.1:9443`
+- Portainer: `https://SERVER_IP:9443`
 - Netdata: `http://SERVER_IP:19999`
 
 Portainer is the Docker management UI.
@@ -104,7 +104,7 @@ If Tailscale is already installed on the server, use the dashboard override inst
 make up-dashboard-tailscale
 ```
 
-That keeps the main stack unchanged but temporarily runs Portainer with `PORTAINER_BIND_IP=0.0.0.0` so it binds on the server network instead of only `127.0.0.1`.
+That uses the same dashboard stack and keeps Portainer explicitly bound on the server network.
 
 Then access it using the server's Tailscale IP:
 
@@ -114,19 +114,18 @@ Then access it using the server's Tailscale IP:
 Notes:
 
 - `Netdata` already uses host networking, so it is reachable on the server's interfaces, including Tailscale.
-- PostgreSQL, Redis, MySQL, and MongoDB remain local-only in the base compose. Keep them that way unless you have a specific need.
-- If you want `MailHog` or another web UI reachable over Tailscale later, add it deliberately; do not open database ports just for convenience.
-- If you want Portainer permanently reachable over Tailscale, set `PORTAINER_BIND_IP=0.0.0.0` in `.env`.
+- PostgreSQL, Redis, MySQL, MongoDB, and the other published services are reachable on the server interfaces, including Tailscale, LAN, and any public-facing interface your firewall/router exposes.
+- If you do not want services exposed broadly, tighten your host firewall immediately.
 
 ## Practical notes
 
 - Change every password in `.env` before leaving this stack running.
-- Keep the `127.0.0.1:` bindings unless you really need LAN exposure.
 - If you want external access, put a reverse proxy in front of the web UIs instead of publishing databases directly.
 - Elasticsearch is the heaviest part of this stack. Only enable the observability profile if you need it.
 - Kafka is useful for development or queue experiments, but it is unnecessary overhead for most home setups.
 - `Portainer` and `Netdata` assume Docker is available at `/var/run/docker.sock`. They are not portable to Podman without changes.
 - `Netdata` uses `network_mode: host` per the official Docker guidance so it can observe host networking properly. That means its dashboard listens on the host directly on port `19999`; keep your firewall tight if the server is reachable outside your LAN.
+- This compose now publishes ports on `0.0.0.0` by default. Treat the server firewall as mandatory, not optional.
 
 ## Recommended baseline
 
