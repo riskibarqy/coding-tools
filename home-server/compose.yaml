@@ -425,6 +425,20 @@ services:
     networks: [backend]
     logging: *default_logging
 
+  postgres-exporter:
+    profiles: ["monitoring"]
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB:-app}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER:-app}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
   otel-collector:
     profiles: ["otel"]
     image: otel/opentelemetry-collector-contrib:0.143.1

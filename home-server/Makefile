@@ -4,7 +4,7 @@ COMPOSE_FILE ?= compose.yaml
 COMPOSE_CMD = $(COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE)
 SERVICE ?= postgres
 
-.PHONY: help up up-dashboard up-portal up-bugsink up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-edge up-backup up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-bugsink restart-homarr restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-blackbox-exporter restart-alertmanager restart-redis-exporter restart-otel-collector restart-tempo restart-caddy restart-restic
+.PHONY: help up up-dashboard up-portal up-bugsink up-mysql up-mongo up-messaging up-observability up-monitoring up-otel up-edge up-backup up-full down restart ps logs pull config service-up service-down service-restart service-logs service-ps restart-postgres restart-redis restart-mailhog restart-portainer restart-netdata restart-redis-insight restart-bugsink restart-homarr restart-mysql restart-mongo restart-kafka restart-kafka-ui restart-elasticsearch restart-kibana restart-apm-server restart-grafana restart-prometheus restart-node-exporter restart-cadvisor restart-blackbox-exporter restart-alertmanager restart-redis-exporter restart-postgres-exporter restart-otel-collector restart-tempo restart-caddy restart-restic
 
 help:
 	@echo "Targets:"
@@ -178,6 +178,9 @@ restart-alertmanager: service-restart
 
 restart-redis-exporter: SERVICE=redis-exporter
 restart-redis-exporter: service-restart
+
+restart-postgres-exporter: SERVICE=postgres-exporter
+restart-postgres-exporter: service-restart
 
 restart-otel-collector: SERVICE=otel-collector
 restart-otel-collector: service-restart

@@ -126,6 +126,7 @@ Bugsink is the lighter Sentry-like error tracking UI for app exceptions.
 Grafana is the main dashboard for Prometheus metrics and Tempo traces.
 Blackbox Exporter probes services from the outside-in.
 Alertmanager handles alert routing and silencing, and is now wired for Telegram notifications.
+PostgreSQL metrics are collected through `postgres-exporter` and exposed in Grafana.
 
 ## Caddy Hostnames
 
@@ -220,6 +221,7 @@ Notes:
   - `node-exporter` internal on `9100`
   - `cadvisor` internal on `8080`
   - `redis-exporter` internal on `9121`
+  - `postgres-exporter` internal on `9187`
 - `otel`
   - `otel-collector` on `4317` and `4318`
   - `tempo` internal on `3200`
@@ -233,6 +235,7 @@ Notes:
 - Host metrics: `node-exporter -> prometheus -> grafana`
 - Container metrics: `cadvisor -> prometheus -> grafana`
 - Redis metrics: `redis-exporter -> prometheus -> grafana`
+- PostgreSQL metrics: `postgres-exporter -> prometheus -> grafana`
 - Active probes: `blackbox-exporter -> prometheus -> alert rules -> alertmanager`
 - OTLP traces: `app -> otel-collector -> tempo -> grafana`
 - Elastic APM traces and APM data: `app -> apm-server -> elasticsearch -> kibana`
@@ -258,8 +261,33 @@ The message format is defined in:
 Note:
 
 - `make up-monitoring` does not require `make up-otel`
-- Prometheus in this baseline scrapes host, container, and Redis metrics only
+- Prometheus in this baseline scrapes host, container, Redis, and PostgreSQL metrics, plus blackbox probes for configured URLs
 - Tempo is still available to Grafana as a trace datasource when `make up-otel` is running
+
+## App And Postgres Monitoring
+
+The monitoring profile now includes:
+
+- `postgres-exporter` for PostgreSQL metrics
+- blackbox probes for these app URLs:
+  - `https://fantasy-league-fe.vercel.app/`
+  - `https://anubis-rw84mq.fly.dev`
+  - `https://fantasy-league.fly.dev`
+
+After restarting the monitoring stack, Grafana will provision an additional dashboard in the `Home Server` folder:
+
+- `Apps and Postgres`
+
+It includes:
+
+- app up/down status for the frontend and both backends
+- probe duration for the app URLs
+- PostgreSQL exporter status
+- PostgreSQL active connections
+- PostgreSQL transactions per second
+- PostgreSQL database size
+
+If you later change app URLs, update them in [prometheus.yml](/Users/riskiramdan/coding-tools/home-server/prometheus/prometheus.yml) and restart Prometheus.
 
 ## Bugsink
 
