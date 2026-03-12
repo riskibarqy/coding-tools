@@ -65,6 +65,8 @@ services:
     profiles: ["dashboard"]
     image: portainer/portainer-ce:lts
     restart: unless-stopped
+    environment:
+      TRUSTED_ORIGINS: ${PORTAINER_TRUSTED_ORIGINS:-portainer.home}
     ports:
       - "${PORTAINER_BIND_IP:-0.0.0.0}:${PORTAINER_HTTPS_PORT:-9443}:9443"
     volumes:
