@@ -3,12 +3,13 @@ ENV_FILE ?= .env
 COMPOSE_FILE ?= compose.yaml
 COMPOSE_CMD = $(COMPOSE) --env-file $(ENV_FILE) -f $(COMPOSE_FILE)
 
-.PHONY: help up up-dashboard up-mysql up-mongo up-messaging up-observability up-full down ps logs config pull
+.PHONY: help up up-dashboard up-dashboard-tailscale up-mysql up-mongo up-messaging up-observability up-full down ps logs config pull config-tailscale
 
 help:
 	@echo "Targets:"
 	@echo "  make up                - Start baseline services (postgres, redis, mailhog)"
 	@echo "  make up-dashboard      - Start Portainer + Netdata"
+	@echo "  make up-dashboard-tailscale - Start Portainer + Netdata for Tailscale access"
 	@echo "  make up-mysql          - Start baseline + MySQL"
 	@echo "  make up-mongo          - Start baseline + MongoDB"
 	@echo "  make up-messaging      - Start baseline + Kafka + Kafka UI"
@@ -24,12 +25,16 @@ help:
 	@echo "  COMPOSE=$(COMPOSE)"
 	@echo "  ENV_FILE=$(ENV_FILE)"
 	@echo "  COMPOSE_FILE=$(COMPOSE_FILE)"
+	@echo "  PORTAINER_BIND_IP is read from $(ENV_FILE)"
 
 up:
 	$(COMPOSE_CMD) up -d
 
 up-dashboard:
 	$(COMPOSE_CMD) --profile dashboard up -d
+
+up-dashboard-tailscale:
+	PORTAINER_BIND_IP=0.0.0.0 $(COMPOSE_CMD) --profile dashboard up -d
 
 up-mysql:
 	$(COMPOSE_CMD) --profile mysql up -d
@@ -60,3 +65,6 @@ pull:
 
 config:
 	$(COMPOSE_CMD) config
+
+config-tailscale:
+	PORTAINER_BIND_IP=0.0.0.0 $(COMPOSE_CMD) --profile dashboard config

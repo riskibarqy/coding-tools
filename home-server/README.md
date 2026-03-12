@@ -80,6 +80,28 @@ After `make up-dashboard`:
 Portainer is the Docker management UI.
 Netdata is the host and container metrics UI.
 
+## Remote Access With Tailscale
+
+If Tailscale is already installed on the server, use the dashboard override instead of exposing everything broadly:
+
+```bash
+make up-dashboard-tailscale
+```
+
+That keeps the main stack unchanged but temporarily runs Portainer with `PORTAINER_BIND_IP=0.0.0.0` so it binds on the server network instead of only `127.0.0.1`.
+
+Then access it using the server's Tailscale IP:
+
+- Portainer: `https://TAILSCALE_IP:9443`
+- Netdata: `http://TAILSCALE_IP:19999`
+
+Notes:
+
+- `Netdata` already uses host networking, so it is reachable on the server's interfaces, including Tailscale.
+- PostgreSQL, Redis, MySQL, and MongoDB remain local-only in the base compose. Keep them that way unless you have a specific need.
+- If you want `MailHog` or another web UI reachable over Tailscale later, add it deliberately; do not open database ports just for convenience.
+- If you want Portainer permanently reachable over Tailscale, set `PORTAINER_BIND_IP=0.0.0.0` in `.env`.
+
 ## Practical notes
 
 - Change every password in `.env` before leaving this stack running.

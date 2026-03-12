@@ -66,7 +66,7 @@ services:
     image: portainer/portainer-ce:lts
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${PORTAINER_HTTPS_PORT:-9443}:9443"
+      - "${PORTAINER_BIND_IP:-127.0.0.1}:${PORTAINER_HTTPS_PORT:-9443}:9443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
