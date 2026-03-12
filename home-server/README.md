@@ -302,6 +302,44 @@ Access:
 
 If you later move Caddy to HTTPS, change `BUGSINK_BASE_URL` to `https://bugsink.home` and stop relying on `BUGSINK_BEHIND_PLAIN_HTTP_PROXY=true`.
 
+### Bugsink Email
+
+Bugsink email is configured through these `.env` values:
+
+- `BUGSINK_EMAIL_HOST`
+- `BUGSINK_EMAIL_HOST_USER`
+- `BUGSINK_EMAIL_HOST_PASSWORD`
+- `BUGSINK_EMAIL_PORT`
+- `BUGSINK_EMAIL_USE_TLS`
+- `BUGSINK_EMAIL_USE_SSL`
+- `BUGSINK_EMAIL_TIMEOUT`
+- `BUGSINK_DEFAULT_FROM_EMAIL`
+
+For local testing with MailHog in this stack, use:
+
+```env
+BUGSINK_EMAIL_HOST=mailhog
+BUGSINK_EMAIL_PORT=1025
+BUGSINK_EMAIL_USE_TLS=false
+BUGSINK_EMAIL_USE_SSL=false
+BUGSINK_EMAIL_HOST_USER=
+BUGSINK_EMAIL_HOST_PASSWORD=
+BUGSINK_DEFAULT_FROM_EMAIL=Bugsink <bugsink@home.local>
+```
+
+Then restart Bugsink:
+
+```bash
+make restart-bugsink
+```
+
+You can inspect the test messages in MailHog:
+
+- `http://SERVER_IP:8025`
+- or `http://mailhog.home`
+
+For real delivery through an SMTP provider, set the provider's SMTP host, username, password, sender address, and either TLS or SSL according to the provider's documentation, then restart Bugsink.
+
 ## Sentry
 
 I did not inline Sentry into this compose file.
