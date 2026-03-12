@@ -100,6 +100,25 @@ services:
       - /run/dbus:/run/dbus:ro
     logging: *default_logging
 
+  redis-insight:
+    profiles: ["dashboard"]
+    image: redis/redisinsight:2.70.1
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      RIHOST: redis
+      RIPORT: "6379"
+      RIPASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports:
+      - "0.0.0.0:${REDIS_INSIGHT_HOST_PORT:-5540}:5540"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
   mysql:
     profiles: ["mysql"]
     image: mysql:8.4
@@ -265,6 +284,107 @@ services:
     networks: [backend]
     logging: *default_logging
 
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:12.3.1
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "0.0.0.0:${GRAFANA_HOST_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks: [backend]
+    logging: *default_logging
+
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v3.5.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+    ports:
+      - "0.0.0.0:${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [backend]
+    logging: *default_logging
+
+  node-exporter:
+    profiles: ["monitoring"]
+    image: prom/node-exporter:v1.10.2
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)
+    volumes:
+      - /:/host:ro,rslave
+    networks: [backend]
+    logging: *default_logging
+
+  cadvisor:
+    profiles: ["monitoring"]
+    image: ghcr.io/google/cadvisor:v0.54.1
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks: [backend]
+    logging: *default_logging
+
+  redis-exporter:
+    profiles: ["monitoring"]
+    image: oliver006/redis_exporter:v1.80.1
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    networks: [backend]
+    logging: *default_logging
+
+  otel-collector:
+    profiles: ["otel"]
+    image: otel/opentelemetry-collector-contrib:0.143.1
+    restart: unless-stopped
+    command:
+      - --config=/etc/otel-collector-config.yaml
+    ports:
+      - "0.0.0.0:${OTEL_GRPC_HOST_PORT:-4317}:4317"
+      - "0.0.0.0:${OTEL_HTTP_HOST_PORT:-4318}:4318"
+    volumes:
+      - ./otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_started
+    networks: [backend]
+    logging: *default_logging
+
+  tempo:
+    profiles: ["otel"]
+    image: grafana/tempo:2.9.0
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/tempo.yaml
+    volumes:
+      - tempo_data:/var/tempo
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+    networks: [backend]
+    logging: *default_logging
+
 volumes:
   postgres_data:
   redis_data:
@@ -272,10 +392,14 @@ volumes:
   netdataconfig:
   netdatalib:
   netdatacache:
+  redisinsight_data:
   mysql_data:
   mongo_data:
   kafka_data:
   es_data:
+  grafana_data:
+  prometheus_data:
+  tempo_data:
 
 networks:
   backend:

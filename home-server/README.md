@@ -5,8 +5,8 @@ This folder is a cleaned-up compose setup for a small home server or always-on l
 It is intentionally narrower than the repo's original dev stack:
 
 - Kept by default: PostgreSQL, Redis, MailHog
-- Optional dashboard profile: Portainer, Netdata
-- Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server
+- Optional dashboard profile: Portainer, Netdata, Redis Insight
+- Optional profiles: MySQL, MongoDB, Kafka + Kafka UI, Elasticsearch + Kibana + APM Server, Grafana + Prometheus + node_exporter + cAdvisor, OpenTelemetry Collector + Tempo
 - Removed from this baseline: Vault dev mode, Kafdrop, Redis Insight, Pyroscope
 
 ## Why this version exists
@@ -50,6 +50,8 @@ make up-mysql
 make up-mongo
 make up-messaging
 make up-observability
+make up-monitoring
+make up-otel
 ```
 
 Start everything:
@@ -64,6 +66,8 @@ Restart one app:
 make restart-postgres
 make restart-portainer
 make restart-netdata
+make restart-grafana
+make restart-otel-collector
 ```
 
 Or use the generic target:
@@ -92,29 +96,35 @@ After `make up-dashboard`:
 
 - Portainer: `https://SERVER_IP:9443`
 - Netdata: `http://SERVER_IP:19999`
+- Redis Insight: `http://SERVER_IP:5540`
+
+After `make up-monitoring`:
+
+- Grafana: `http://SERVER_IP:3000`
+- Prometheus: `http://SERVER_IP:9090`
 
 Portainer is the Docker management UI.
 Netdata is the host and container metrics UI.
+Redis Insight is the practical Redis UI for browsing keys, memory, commands, and Redis-specific diagnostics.
+Grafana is the main dashboard for Prometheus metrics and Tempo traces.
 
 ## Remote Access With Tailscale
 
-If Tailscale is already installed on the server, use the dashboard override instead of exposing everything broadly:
+All published ports in this stack are bound on the server interfaces, so if Tailscale is installed you can connect with the server's Tailscale IP directly.
 
-```bash
-make up-dashboard-tailscale
-```
-
-That uses the same dashboard stack and keeps Portainer explicitly bound on the server network.
-
-Then access it using the server's Tailscale IP:
+Examples:
 
 - Portainer: `https://TAILSCALE_IP:9443`
 - Netdata: `http://TAILSCALE_IP:19999`
+- Grafana: `http://TAILSCALE_IP:3000`
+- Prometheus: `http://TAILSCALE_IP:9090`
+- PostgreSQL: `TAILSCALE_IP:5432`
 
 Notes:
 
 - `Netdata` already uses host networking, so it is reachable on the server's interfaces, including Tailscale.
 - PostgreSQL, Redis, MySQL, MongoDB, and the other published services are reachable on the server interfaces, including Tailscale, LAN, and any public-facing interface your firewall/router exposes.
+- Grafana, Prometheus, and the OTLP ingest ports are also published on the server interfaces by default.
 - If you do not want services exposed broadly, tighten your host firewall immediately.
 
 ## Practical notes
@@ -123,9 +133,57 @@ Notes:
 - If you want external access, put a reverse proxy in front of the web UIs instead of publishing databases directly.
 - Elasticsearch is the heaviest part of this stack. Only enable the observability profile if you need it.
 - Kafka is useful for development or queue experiments, but it is unnecessary overhead for most home setups.
+- Prometheus + Grafana + Tempo adds another monitoring path next to Elastic. That is intentional here, but it does increase RAM usage.
 - `Portainer` and `Netdata` assume Docker is available at `/var/run/docker.sock`. They are not portable to Podman without changes.
 - `Netdata` uses `network_mode: host` per the official Docker guidance so it can observe host networking properly. That means its dashboard listens on the host directly on port `19999`; keep your firewall tight if the server is reachable outside your LAN.
 - This compose now publishes ports on `0.0.0.0` by default. Treat the server firewall as mandatory, not optional.
+
+## Profiles and Ports
+
+- `dashboard`
+  - `portainer` on `9443`
+  - `netdata` on `19999`
+  - `redis-insight` on `5540`
+- `observability`
+  - `elasticsearch` on `9200`
+  - `kibana` on `5601`
+  - `apm-server` on `8200`
+- `monitoring`
+  - `grafana` on `3000`
+  - `prometheus` on `9090`
+  - `node-exporter` internal on `9100`
+  - `cadvisor` internal on `8080`
+  - `redis-exporter` internal on `9121`
+- `otel`
+  - `otel-collector` on `4317` and `4318`
+  - `tempo` internal on `3200`
+
+## Data Flow
+
+- Host metrics: `node-exporter -> prometheus -> grafana`
+- Container metrics: `cadvisor -> prometheus -> grafana`
+- Redis metrics: `redis-exporter -> prometheus -> grafana`
+- OTLP traces: `app -> otel-collector -> tempo -> grafana`
+- Elastic APM traces and APM data: `app -> apm-server -> elasticsearch -> kibana`
+
+## Sentry
+
+I did not inline Sentry into this compose file.
+
+Reason:
+
+- official self-hosted Sentry is a large multi-service stack with its own bootstrap, install script, and frequent compose/config updates
+- forcing it into this compose would create a fragile fork that will be painful to maintain
+
+Official sources:
+
+- [Self-hosted Sentry repo](https://github.com/getsentry/self-hosted)
+- [Self-hosted releases](https://github.com/getsentry/self-hosted/releases)
+
+Practical recommendation:
+
+- deploy Sentry in a separate directory and keep this `home-server` stack for shared infra, dashboards, and optional Elastic/Grafana tooling
+- if you want, I can scaffold a separate `sentry-self-hosted/` guide in this repo next, with the exact clone/install/update flow and Tailscale access notes
 
 ## Recommended baseline
 
