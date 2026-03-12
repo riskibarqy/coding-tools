@@ -166,6 +166,12 @@ Notes:
 - OTLP traces: `app -> otel-collector -> tempo -> grafana`
 - Elastic APM traces and APM data: `app -> apm-server -> elasticsearch -> kibana`
 
+Note:
+
+- `make up-monitoring` does not require `make up-otel`
+- Prometheus in this baseline scrapes host, container, and Redis metrics only
+- Tempo is still available to Grafana as a trace datasource when `make up-otel` is running
+
 ## Sentry
 
 I did not inline Sentry into this compose file.
