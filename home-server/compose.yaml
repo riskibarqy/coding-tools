@@ -418,6 +418,19 @@ services:
     profiles: ["edge"]
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Jakarta}
+      CADDY_GRAFANA_HOST: ${CADDY_GRAFANA_HOST:-grafana.home}
+      CADDY_HOMARR_HOST: ${CADDY_HOMARR_HOST:-homarr.home}
+      CADDY_PROMETHEUS_HOST: ${CADDY_PROMETHEUS_HOST:-prometheus.home}
+      CADDY_ALERTMANAGER_HOST: ${CADDY_ALERTMANAGER_HOST:-alertmanager.home}
+      CADDY_MAILHOG_HOST: ${CADDY_MAILHOG_HOST:-mailhog.home}
+      CADDY_REDIS_INSIGHT_HOST: ${CADDY_REDIS_INSIGHT_HOST:-redisinsight.home}
+      CADDY_KAFKA_UI_HOST: ${CADDY_KAFKA_UI_HOST:-kafka.home}
+      CADDY_KIBANA_HOST: ${CADDY_KIBANA_HOST:-kibana.home}
+      CADDY_NETDATA_HOST: ${CADDY_NETDATA_HOST:-netdata.home}
+      CADDY_NETDATA_UPSTREAM: ${CADDY_NETDATA_UPSTREAM:-host.docker.internal:19999}
+      CADDY_PORTAINER_HOST: ${CADDY_PORTAINER_HOST:-portainer.home}
     ports:
       - "0.0.0.0:${CADDY_HTTP_PORT:-8088}:80"
     extra_hosts:
