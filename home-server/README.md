@@ -58,6 +58,22 @@ Start everything:
 make up-full
 ```
 
+Restart one app:
+
+```bash
+make restart-postgres
+make restart-portainer
+make restart-netdata
+```
+
+Or use the generic target:
+
+```bash
+make service-restart SERVICE=redis
+make service-logs SERVICE=kafka
+make service-ps SERVICE=mailhog
+```
+
 You can also use plain compose commands:
 
 ```bash
