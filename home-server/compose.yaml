@@ -149,6 +149,9 @@ services:
       <<: *common_env
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+    command:
+      - --wiredTigerCacheSizeGB
+      - "${MONGO_WIREDTIGER_CACHE_SIZE_GB:-0.25}"
     ports:
       - "0.0.0.0:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
@@ -165,6 +168,8 @@ services:
       KAFKA_SKIP_KRAFT_CHECKS: "true"
       KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID:-jvMqlKDsTGuGiAd8t0Sk1Q}
       KAFKA_HOST_PORT: ${KAFKA_HOST_PORT:-29092}
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xms256m -Xmx512m}
+      KAFKA_JVM_PERFORMANCE_OPTS: ${KAFKA_JVM_PERFORMANCE_OPTS:--XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35}
     command:
       - bash
       - -c
@@ -208,6 +213,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *common_env
+      JAVA_OPTS: ${KAFKA_UI_JAVA_OPTS:--Xms128m -Xmx256m}
       KAFKA_CLUSTERS_0_NAME: local-kafka
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       WEBCLIENT_MAX_IN_MEMORY_BUFFER_SIZE: 20MB
@@ -254,6 +260,7 @@ services:
     restart: unless-stopped
     environment:
       <<: *common_env
+      NODE_OPTIONS: ${KIBANA_NODE_OPTIONS:---max-old-space-size=512}
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       ELASTICSEARCH_USERNAME: elastic
       ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}

@@ -185,6 +185,7 @@ Notes:
 - `Portainer` and `Netdata` assume Docker is available at `/var/run/docker.sock`. They are not portable to Podman without changes.
 - `Netdata` uses `network_mode: host` per the official Docker guidance so it can observe host networking properly. That means its dashboard listens on the host directly on port `19999`; keep your firewall tight if the server is reachable outside your LAN.
 - This compose now publishes ports on `0.0.0.0` by default. Treat the server firewall as mandatory, not optional.
+- Kafka, Kafka UI, Kibana, and Mongo now have conservative memory caps in `.env`. If your server is small, keep those defaults; if workloads become slow under load, raise them intentionally instead of leaving the JVM defaults unbounded.
 
 ## Profiles and Ports
 
