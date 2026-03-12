@@ -16,6 +16,27 @@ services:
       - ./data/postgres:/var/lib/postgresql/data
     networks: [backend-network]
 
+  mysql:
+    image: mysql:8.4
+    container_name: my-mysql
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend-network]
+
   redis:
     image: redis:7-alpine
     container_name: my-redis
@@ -35,30 +56,18 @@ services:
       retries: 5
     networks: [backend-network]
 
-  mongos-configsvr:
+  mongo:
     image: mongo:7.0
-    command: ["mongod", "--configsvr", "--replSet", "cfgRS", "--port", "27019", "--bind_ip_all"]
-    ports:
-      - "27019:27019"
-    volumes:
-      - mongo_config_data:/data/configdb
-    networks: [backend-network]
-
-  mongos-shard1:
-    image: mongo:7.0
-    command: ["mongod", "--shardsvr", "--replSet", "shard1RS", "--port", "27018", "--bind_ip_all"]
-    ports:
-      - "27018:27018"
-    volumes:
-      - mongo_shard_data:/data/db
-    networks: [backend-network]
-
-  mongos:
-    image: mongo:7.0
-    depends_on: [mongos-configsvr, mongos-shard1]
-    command: ["mongos", "--configdb", "cfgRS/mongos-configsvr:27019", "--bind_ip_all", "--port", "27017"]
+    container_name: my-mongo
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-changeme}
     ports:
       - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
     networks: [backend-network]
 
   kafka:
@@ -90,6 +99,8 @@ services:
         transaction.state.log.replication.factor=1
         transaction.state.log.min.isr=1
         group.initial.rebalance.delay.ms=0
+        message.max.bytes=20971520
+        replica.fetch.max.bytes=20971520
         EOF
         if [ ! -f "/var/lib/kafka/data/meta.properties" ]; then
           kafka-storage format --ignore-formatted --cluster-id jvMqlKDsTGuGiAd8t0Sk1Q --config /tmp/kraft.properties
@@ -119,6 +130,10 @@ services:
       <<: *common_env
       KAFKA_CLUSTERS_0_NAME: local-kafka
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+      WEBCLIENT_MAX_IN_MEMORY_BUFFER_SIZE: 20MB
+      KAFKA_CLUSTERS_0_PROPERTIES_FETCH_MAX_BYTES: 20971520
+      KAFKA_CLUSTERS_0_PROPERTIES_MAX_PARTITION_FETCH_BYTES: 20971520
+      KAFKA_CLUSTERS_0_PROPERTIES_MAX_REQUEST_SIZE: 20971520
     ports:
       - "8201:8080"
     depends_on: [kafka]
@@ -128,11 +143,8 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
     container_name: elasticsearch
     environment:
-      <<: *common_env
       discovery.type: single-node
-      xpack.security.enabled: "true"
-      ELASTIC_PASSWORD: changeme
-      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      xpack.security.enabled: "false"
     ports:
       - "9200:9200"
     volumes:
@@ -143,12 +155,7 @@ services:
     image: docker.elastic.co/kibana/kibana:8.13.4
     container_name: kibana
     environment:
-      <<: *common_env
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-      ELASTICSEARCH_SERVICEACCOUNTTOKEN: AAEAAWVsYXN0aWMva2liYW5hL2tpYmFuYS10b2tlbjptcWpiN1BCRFQ4MkhUb0VSS2taelp3
-      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: 77d78b335ab04575386c7ad1d275f834
-      XPACK_REPORTING_ENCRYPTIONKEY: a8dbe9710f7c2162067543e9d2a37e7e
-      XPACK_SECURITY_ENCRYPTIONKEY: 30da3596eb3fb98c34792b33dc6e5fb5
     ports:
       - "5601:5601"
     depends_on: [elasticsearch]
@@ -224,8 +231,7 @@ volumes:
   postgres_data:
   redis_data:
   kafka_data:
-  mongo_config_data:
-  mongo_shard_data:
+  mongo_data:
   es_data:
   pyroscope_data:
 

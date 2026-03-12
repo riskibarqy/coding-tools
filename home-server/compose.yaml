@@ -1,0 +1,282 @@
+name: home-server
+
+x-common-env: &common_env
+  TZ: ${TZ:-Asia/Jakarta}
+
+x-default-logging: &default_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    logging: *default_logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --save 60 1 --loglevel warning
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    logging: *default_logging
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+    networks: [backend]
+    logging: *default_logging
+
+  portainer:
+    profiles: ["dashboard"]
+    image: portainer/portainer-ce:lts
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORTAINER_HTTPS_PORT:-9443}:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks: [backend]
+    logging: *default_logging
+
+  netdata:
+    profiles: ["dashboard"]
+    image: netdata/netdata:stable
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /:/host/root:ro,rslave
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/dbus:/run/dbus:ro
+    logging: *default_logging
+
+  mysql:
+    profiles: ["mysql"]
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks: [backend]
+    logging: *default_logging
+
+  mongo:
+    profiles: ["mongo"]
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks: [backend]
+    logging: *default_logging
+
+  kafka:
+    profiles: ["messaging"]
+    image: confluentinc/cp-kafka:7.5.3
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      KAFKA_SKIP_KRAFT_CHECKS: "true"
+      KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID:-jvMqlKDsTGuGiAd8t0Sk1Q}
+      KAFKA_HOST_PORT: ${KAFKA_HOST_PORT:-29092}
+    command:
+      - bash
+      - -c
+      - |
+        cat <<EOF > /tmp/kraft.properties
+        process.roles=broker,controller
+        node.id=1
+        controller.quorum.voters=1@localhost:9093
+        listeners=PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+        advertised.listeners=PLAINTEXT://kafka:9092,HOST://localhost:$$KAFKA_HOST_PORT
+        controller.listener.names=CONTROLLER
+        listener.security.protocol.map=PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+        inter.broker.listener.name=PLAINTEXT
+        log.dirs=/var/lib/kafka/data
+        offsets.topic.replication.factor=1
+        transaction.state.log.replication.factor=1
+        transaction.state.log.min.isr=1
+        group.initial.rebalance.delay.ms=0
+        message.max.bytes=20971520
+        replica.fetch.max.bytes=20971520
+        EOF
+        if [ ! -f "/var/lib/kafka/data/meta.properties" ]; then
+          kafka-storage format --ignore-formatted --cluster-id "$$KAFKA_CLUSTER_ID" --config /tmp/kraft.properties
+        fi
+        exec kafka-server-start /tmp/kraft.properties
+    ports:
+      - "127.0.0.1:${KAFKA_HOST_PORT:-29092}:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+    logging: *default_logging
+
+  kafka-ui:
+    profiles: ["messaging"]
+    image: provectuslabs/kafka-ui:latest
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      KAFKA_CLUSTERS_0_NAME: local-kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      WEBCLIENT_MAX_IN_MEMORY_BUFFER_SIZE: 20MB
+      KAFKA_CLUSTERS_0_PROPERTIES_FETCH_MAX_BYTES: 20971520
+      KAFKA_CLUSTERS_0_PROPERTIES_MAX_PARTITION_FETCH_BYTES: 20971520
+      KAFKA_CLUSTERS_0_PROPERTIES_MAX_REQUEST_SIZE: 20971520
+    ports:
+      - "127.0.0.1:${KAFKA_UI_HOST_PORT:-8201}:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
+  elasticsearch:
+    profiles: ["observability"]
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+    ports:
+      - "127.0.0.1:${ELASTIC_HOST_PORT:-9200}:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u elastic:$$ELASTIC_PASSWORD http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks: [backend]
+    logging: *default_logging
+
+  kibana:
+    profiles: ["observability"]
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    restart: unless-stopped
+    environment:
+      <<: *common_env
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${KIBANA_HOST_PORT:-5601}:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
+  apm-server:
+    profiles: ["observability"]
+    image: docker.elastic.co/apm/apm-server:8.13.4
+    restart: unless-stopped
+    command: >
+      apm-server -e
+      -E apm-server.secret_token=${APM_SECRET_TOKEN:?set APM_SECRET_TOKEN in .env}
+      -E apm-server.host=0.0.0.0:8200
+      -E output.elasticsearch.hosts=["http://elasticsearch:9200"]
+      -E output.elasticsearch.username=elastic
+      -E output.elasticsearch.password=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${APM_SERVER_HOST_PORT:-8200}:8200"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [backend]
+    logging: *default_logging
+
+volumes:
+  postgres_data:
+  redis_data:
+  portainer_data:
+  netdataconfig:
+  netdatalib:
+  netdatacache:
+  mysql_data:
+  mongo_data:
+  kafka_data:
+  es_data:
+
+networks:
+  backend:
+    driver: bridge
