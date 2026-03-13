@@ -166,6 +166,18 @@ Notes:
 
 All published ports in this stack are bound on the server interfaces, so if Tailscale is installed you can connect with the server's Tailscale IP directly.
 
+If you want PostgreSQL reachable only over WireGuard, set `POSTGRES_BIND_IP` in your real `.env` to the WireGuard interface IP, for example:
+
+```env
+POSTGRES_BIND_IP=10.10.0.1
+```
+
+Then recreate PostgreSQL:
+
+```bash
+docker compose --env-file .env -f compose.yaml up -d --force-recreate postgres
+```
+
 Examples:
 
 - Portainer: `https://TAILSCALE_IP:9443`
